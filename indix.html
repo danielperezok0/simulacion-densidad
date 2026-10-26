@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Didáctico: Ley de Densidad y Flotabilidad</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para gráficos didácticos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    },
+                    colors: {
+                        lab: {
+                            dark: '#0f172a',
+                            panel: '#1e293b',
+                            border: '#334155',
+                            accent: '#38bdf8',
+                            neon: '#06b6d4'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+        /* Canvas glowing effect */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.25);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+
+    <!-- Header / Navbar -->
+    <header class="glass-panel sticky top-0 z-50 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/30 text-cyan-400">
+                <i class="fa-solid fa-flask-vial text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
+                    Laboratorio de Densidad y Flotabilidad
+                </h1>
+                <p class="text-xs text-slate-400">Simulación interactiva &bull; Principio de Arquímedes (\(\rho = m/V\))</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2 text-xs">
+            <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Modo Docente Activo
+            </span>
+            <button id="btnResetAll" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition text-xs font-semibold flex items-center gap-1">
+                <i class="fa-solid fa-rotate-right"></i> Reiniciar
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area Grid -->
+    <main class="flex-1 p-3 md:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-[1600px] w-full mx-auto">
+
+        <!-- LEFT PANEL: Interactive Controls & Liquids Configuration (4 cols) -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            
+            <!-- Fluids Management Section -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
+                    <h2 class="font-semibold text-sm text-cyan-400 flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group"></i> Configuración de Líquidos
+                    </h2>
+                    <span class="text-[10px] text-slate-400">Orden de columna por densidad</span>
+                </div>
+
+                <div id="liquidsList" class="flex flex-col gap-2 text-xs">
+                    <!-- Dynamic Liquid items injected here -->
+                </div>
+
+                <div class="pt-2 border-t border-slate-700/60 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <label for="waterColor" class="text-xs text-slate-300">Color Agua:</label>
+                        <input type="color" id="waterColor" value="#00aaff" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0">
+                    </div>
+                    
+                    <div class="flex items-center gap-2 flex-1 justify-end">
+                        <label for="tempSlider" class="text-xs text-slate-300">Temp. Agua:</label>
+                        <input type="range" id="tempSlider" min="0" max="100" value="20" class="w-24 accent-cyan-400 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+                        <span id="tempVal" class="text-xs font-mono text-cyan-300">20°C</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Object Builder -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
+                    <h2 class="font-semibold text-sm text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-cube"></i> Crear Objeto Personalizado
+                    </h2>
+                    <span id="customDensityDisplay" class="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                        1.00 g/cm³
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <div class="flex justify-between text-slate-300 mb-1">
+                            <span>Masa (m):</span>
+                            <span id="massVal" class="font-mono text-cyan-400">50 g</span>
+                        </div>
+                        <input type="range" id="massSlider" min="5" max="300" value="50" step="5" class="w-full accent-cyan-400 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-slate-300 mb-1">
+                            <span>Volumen (V):</span>
+                            <span id="volVal" class="font-mono text-cyan-400">50 cm³</span>
+                        </div>
+                        <input type="range" id="volSlider" min="10" max="200" value="50" step="5" class="w-full accent-cyan-400 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+
+                <button id="btnSpawnCustom" class="w-full py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold rounded-lg transition shadow-md flex items-center justify-center gap-2 text-xs">
+                    <i class="fa-solid fa-plus"></i> Añadir Objeto a la Lámpara
+                </button>
+            </div>
+
+            <!-- Preset Objects & Interactive Buttons -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col gap-3">
+                <h2 class="font-semibold text-sm text-indigo-400 border-b border-slate-700/60 pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-shapes"></i> Presets de Objetos
+                </h2>
+                <div class="grid grid-cols-2 gap-2 text-xs" id="presetsGrid">
+                    <!-- Presets added via JS -->
+                </div>
+
+                <div class="pt-2 border-t border-slate-700/60 flex flex-col gap-2">
+                    <button id="btnLavaTab" class="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-lg transition shadow-md flex items-center justify-center gap-2 text-xs">
+                        <i class="fa-solid fa-volcano"></i> Pastilla Efervescente (Lámpara de Lava)
+                    </button>
+                    <button id="btnClearObjects" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition text-xs border border-slate-700">
+                        <i class="fa-solid fa-trash-can"></i> Limpiar Objetos Caídos
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- CENTER PANEL: Canvas Column Simulation (4 cols) -->
+        <section class="lg:col-span-4 flex flex-col gap-3 items-center">
+            <div class="w-full glass-panel rounded-xl p-4 flex flex-col items-center relative overflow-hidden h-full min-h-[500px]">
+                <div class="w-full flex justify-between items-center mb-2 px-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-glass-water text-cyan-400"></i> Columna de Ensayos
+                    </span>
+                    <span class="text-[11px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                        Arrastra objetos dentro
+                    </span>
+                </div>
+
+                <!-- Simulation Canvas Wrapper -->
+                <div class="relative w-full flex-1 flex justify-center items-center">
+                    <canvas id="simCanvas" class="rounded-xl border border-slate-700/80 bg-slate-950/80 neon-glow cursor-crosshair"></canvas>
+                </div>
+
+                <!-- Live Force Diagram Canvas Overlay / Container -->
+                <div id="forceOverlay" class="w-full mt-3 p-2 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400">Objeto Seleccionado:</span>
+                        <span id="selectedObjName" class="font-bold text-cyan-300">Ninguno (haz clic en uno)</span>
+                    </div>
+                    <div class="flex gap-3 text-[11px] font-mono">
+                        <span class="text-emerald-400">Empuje (Fe): <span id="valEmpuje">0.0</span> N</span>
+                        <span class="text-rose-400">Peso (Fg): <span id="valPeso">0.0</span> N</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: Pedagogical Visualizations, Graphs & Formula (4 cols) -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            
+            <!-- Mathematical & Physics Formula Panel -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col gap-2">
+                <h2 class="font-semibold text-sm text-cyan-400 border-b border-slate-700/60 pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-calculator"></i> Explicación Física & Fórmulas
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-2 text-center text-xs my-1">
+                    <div class="p-2 rounded bg-slate-900/60 border border-slate-800">
+                        <div class="text-slate-400 text-[10px]">Densidad</div>
+                        <div class="font-mono text-cyan-300 font-bold text-sm">\(\rho = \frac{m}{V}\)</div>
+                        <div class="text-[10px] text-slate-500">Masa / Volumen</div>
+                    </div>
+                    <div class="p-2 rounded bg-slate-900/60 border border-slate-800">
+                        <div class="text-slate-400 text-[10px]">Principio de Arquímedes</div>
+                        <div class="font-mono text-emerald-300 font-bold text-sm">\(E = \rho_{líq} \cdot V_{sub} \cdot g\)</div>
+                        <div class="text-[10px] text-slate-500">Empuje Hidrostático</div>
+                    </div>
+                </div>
+
+                <div id="teacherFeedback" class="p-3 rounded-lg bg-cyan-950/40 border border-cyan-800/50 text-xs text-cyan-200 leading-relaxed min-h-[70px] flex items-center">
+                    <i class="fa-solid fa-graduation-cap text-cyan-400 text-lg mr-2.5 flex-shrink-0"></i>
+                    <span id="teacherText">¡Bienvenido al laboratorio! Arrastra o añade objetos para observar en qué capa se equilibran según su densidad relative.</span>
+                </div>
+            </div>
+
+            <!-- Density Comparison Bar Chart -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col gap-2 flex-1">
+                <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
+                    <h2 class="font-semibold text-sm text-indigo-400 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column"></i> Espectro de Densidades (g/cm³)
+                    </h2>
+                    <span class="text-[10px] text-slate-400">Comparativa Líquidos vs Objetos</span>
+                </div>
+                
+                <div class="relative flex-1 min-h-[220px] w-full pt-2">
+                    <canvas id="densityChart"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-panel text-center py-2 border-t border-slate-800 text-[11px] text-slate-500">
+        Simulador Didáctico Interactivo &bull; Física y Química para Secundaria / Universidad &bull; Desarrollado para Computación Educativa
+    </footer>
+
+    <!-- MathJax for rendering formulas nicely -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Main Interactive Logic Script -->
+    <script>
+        // --- DATA & STATE MANAGEMENT ---
+        const GRAVITY = 9.8; // m/s2 scale representation
+        
+        // Liquid layers config (Default order top to bottom by density)
+        let liquids = [
+            { id: 'alcohol', name: 'Alcohol', density: 0.79, color: 'rgba(239, 68, 68, 0.45)', visible: true },
+            { id: 'oil', name: 'Aceite vegetal', density: 0.92, color: 'rgba(234, 179, 8, 0.55)', visible: true },
+            { id: 'water', name: 'Agua', density: 1.00, color: 'rgba(14, 165, 233, 0.5)', visible: true },
+            { id: 'honey', name: 'Miel / Jarabe', density: 1.42, color: 'rgba(180, 83, 9, 0.75)', visible: true }
+        ];
+
+        // Preset Objects Definition
+        const presets = [
+            { name: 'Corcho / Pluma', density: 0.24, radius: 14, color: '#fde047', icon: '🪶' },
+            { name: 'Hielo', density: 0.92, radius: 16, color: '#e0f2fe', icon: '🧊' },
+            { name: 'Fruta / Uva', density: 1.05, radius: 15, color: '#a855f7', icon: '🍇' },
+            { name: 'Tapa de plástico', density: 1.15, radius: 13, color: '#3b82f6', icon: '🔘' },
+            { name: 'Moneda', density: 2.70, radius: 12, color: '#fbbf24', icon: '🪙' },
+            { name: 'Piedra / Metal', density: 3.50, radius: 18, color: '#94a3b8', icon: '🪨' }
+        ];
+
+        // Active Simulation Objects
+        let activeObjects = [];
+        let selectedObject = null;
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        // Lava lamp bubbles state
+        let lavaBubbles = [];
+        let isLavaActive = false;
+        let lavaTimer = 0;
+
+        // Water Temperature state
+        let waterTemp = 20;
+
+        // Chart instance reference
+        let densityChart = null;
+
+        // --- CANVAS SETUP ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = Math.min(container.clientWidth - 20, 320);
+            canvas.height = 460;
+        }
+
+        // Initialize UI Elements & Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            initFluidsUI();
+            initPresetsUI();
+            initChart();
+            setupEventListeners();
+            
+            // Add initial default objects
+            addObject('Corcho / Pluma', 0.24, 14, '#fde047', '🪶');
+            addObject('Fruta / Uva', 1.05, 15, '#a855f7', '🍇');
+            addObject('Piedra / Metal', 3.50, 18, '#94a3b8', '🪨');
+
+            requestAnimationFrame(simLoop);
+        });
+
+        // --- UI INITIALIZATION & BUILDERS ---
+        function initFluidsUI() {
+            const list = document.getElementById('liquidsList');
+            list.innerHTML = '';
+
+            liquids.forEach((liq, index) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition';
+                
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="chk_${liq.id}" ${liq.visible ? 'checked' : ''} class="accent-cyan-400 rounded cursor-pointer">
+                        <div class="w-3 h-3 rounded-full border border-white/20" style="background-color: ${liq.color}"></div>
+                        <span class="font-medium text-slate-200">${liq.name}</span>
+                    </div>
+                    <span class="font-mono text-[11px] text-cyan-400">${liq.density.toFixed(2)} g/cm³</span>
+                `;
+
+                list.appendChild(item);
+
+                // Checkbox event
+                item.querySelector(`#chk_${liq.id}`).addEventListener('change', (e) => {
+                    liq.visible = e.target.checked;
+                    updateTeacherExplanation();
+                    updateChart();
+                });
+            });
+        }
+
+        function initPresetsUI() {
+            const grid = document.getElementById('presetsGrid');
+            grid.innerHTML = '';
+
+            presets.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'p-2 rounded bg-slate-900/80 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-800 text-left transition flex items-center gap-2';
+                btn.innerHTML = `
+                    <span class="text-base">${p.icon}</span>
+                    <div class="overflow-hidden">
+                        <div class="font-semibold text-slate-200 truncate">${p.name}</div>
+                        <div class="text-[10px] font-mono text-slate-400">${p.density} g/cm³</div>
+                    </div>
+                `;
+                btn.addEventListener('click', () => {
+                    addObject(p.name, p.density, p.radius, p.color, p.icon);
+                });
+                grid.appendChild(btn);
+            });
+        }
+
+        // --- CHART INITIALIZATION ---
+        function updateChart() {
+            if (!densityChart) return;
+
+            const visibleLiquids = liquids.filter(l => l.visible);
+            
+            const labels = [
+                ...visibleLiquids.map(l => l.name),
+                ...activeObjects.map(o => o.name)
+            ];
+
+            const data = [
+                ...visibleLiquids.map(l => l.density),
+                ...activeObjects.map(o => o.density)
+            ];
+
+            const colors = [
+                ...visibleLiquids.map(l => l.color.replace(/[\d\.]+\)$/, '0.8)')),
+                ...activeObjects.map(o => o.color)
+            ];
+
+            densityChart.data.labels = labels;
+            densityChart.data.datasets[0].data = data;
+            densityChart.data.datasets[0].backgroundColor = colors;
+            densityChart.update();
+        }
+
+        function initChart() {
+            const ctxChart = document.getElementById('densityChart').getContext('2d');
+            densityChart = new Chart(ctxChart, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Densidad (g/cm³)',
+                        data: [],
+                        backgroundColor: [],
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#94a3b8', font: { family: 'Fira Code', size: 10 } },
+                            title: { display: true, text: 'g/cm³', color: '#64748b', font: { size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#cbd5e1', font: { size: 9 }, autoSkip: false, maxRotation: 45 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` Densidad: ${ctx.raw.toFixed(2)} g/cm³`
+                            }
+                        }
+                    }
+                }
+            });
+
+            updateChart();
+        }
+
+        // --- SIMULATION PHYSICS & CREATION ---
+        function addObject(name, density, radius, color, icon = '⚪') {
+            // Spawn random X near center, Y near top tube mouth
+            const obj = {
+                id: Date.now() + Math.random(),
+                name: name,
+                density: density,
+                radius: radius,
+                color: color,
+                icon: icon,
+                x: canvas.width / 2 + (Math.random() * 40 - 20),
+                y: 40,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: 0,
+                mass: density * (4/3 * Math.PI * Math.pow(radius/10, 3)), // Relative mass
+                isDragged: false
+            };
+            activeObjects.push(obj);
+            selectedObject = obj;
+            updateTeacherExplanation();
+            updateChart();
+        }
+
+        function setupEventListeners() {
+            // Custom object sliders
+            const massSlider = document.getElementById('massSlider');
+            const volSlider = document.getElementById('volSlider');
+            const customDensityDisplay = document.getElementById('customDensityDisplay');
+
+            function updateCustomInputs() {
+                const m = parseFloat(massSlider.value);
+                const v = parseFloat(volSlider.value);
+                const d = m / v;
+                
+                document.getElementById('massVal').innerText = `${m} g`;
+                document.getElementById('volVal').innerText = `${v} cm³`;
+                customDensityDisplay.innerText = `${d.toFixed(2)} g/cm³`;
+            }
+
+            massSlider.addEventListener('input', updateCustomInputs);
+            volSlider.addEventListener('input', updateCustomInputs);
+
+            document.getElementById('btnSpawnCustom').addEventListener('click', () => {
+                const m = parseFloat(massSlider.value);
+                const v = parseFloat(volSlider.value);
+                const d = m / v;
+                // Calculate size proportional to volume
+                const r = Math.max(10, Math.min(26, Math.cbrt(v) * 4));
+                addObject('Personalizado', d, r, '#f59e0b', '📦');
+            });
+
+            // Water color selector
+            document.getElementById('waterColor').addEventListener('input', (e) => {
+                const hex = e.target.value;
+                // Convert hex to rgba
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                const water = liquids.find(l => l.id === 'water');
+                if (water) water.color = `rgba(${r}, ${g}, ${b}, 0.55)`;
+                updateChart();
+            });
+
+            // Temperature slider
+            document.getElementById('tempSlider').addEventListener('input', (e) => {
+                waterTemp = parseInt(e.target.value);
+                document.getElementById('tempVal').innerText = `${waterTemp}°C`;
+                
+                // Thermal expansion slightly reduces water density
+                const water = liquids.find(l => l.id === 'water');
+                if (water) {
+                    water.density = 1.00 - (waterTemp - 20) * 0.0004;
+                }
+                updateTeacherExplanation();
+                updateChart();
+            });
+
+            // Buttons
+            document.getElementById('btnLavaTab').addEventListener('click', triggerLavaEffect);
+            document.getElementById('btnClearObjects').addEventListener('click', () => {
+                activeObjects = [];
+                selectedObject = null;
+                updateTeacherExplanation();
+                updateChart();
+            });
+
+            document.getElementById('btnResetAll').addEventListener('click', () => {
+                liquids = [
+                    { id: 'alcohol', name: 'Alcohol', density: 0.79, color: 'rgba(239, 68, 68, 0.45)', visible: true },
+                    { id: 'oil', name: 'Aceite vegetal', density: 0.92, color: 'rgba(234, 179, 8, 0.55)', visible: true },
+                    { id: 'water', name: 'Agua', density: 1.00, color: 'rgba(14, 165, 233, 0.5)', visible: true },
+                    { id: 'honey', name: 'Miel / Jarabe', density: 1.42, color: 'rgba(180, 83, 9, 0.75)', visible: true }
+                ];
+                waterTemp = 20;
+                document.getElementById('tempSlider').value = 20;
+                document.getElementById('tempVal').innerText = '20°C';
+                document.getElementById('waterColor').value = '#00aaff';
+                activeObjects = [];
+                initFluidsUI();
+                addObject('Corcho / Pluma', 0.24, 14, '#fde047', '🪶');
+                addObject('Fruta / Uva', 1.05, 15, '#a855f7', '🍇');
+                addObject('Piedra / Metal', 3.50, 18, '#94a3b8', '🪨');
+            });
+
+            // Canvas Mouse/Touch Interaction
+            canvas.addEventListener('mousedown', handlePointerDown);
+            canvas.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerUp);
+
+            canvas.addEventListener('touchstart', (e) => handlePointerDown(e.touches[0]), { passive: false });
+            canvas.addEventListener('touchmove', (e) => handlePointerMove(e.touches[0]), { passive: false });
+            window.addEventListener('touchend', handlePointerUp);
+        }
+
+        // Pointer event handlers for Canvas dragging
+        function handlePointerDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Check if user clicked an object
+            for (let i = activeObjects.length - 1; i >= 0; i--) {
+                const obj = activeObjects[i];
+                const dist = Math.hypot(mouseX - obj.x, mouseY - obj.y);
+                if (dist <= obj.radius + 5) {
+                    selectedObject = obj;
+                    isDragging = true;
+                    obj.isDragged = true;
+                    dragOffset.x = mouseX - obj.x;
+                    dragOffset.y = mouseY - obj.y;
+                    updateTeacherExplanation();
+                    return;
+                }
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!isDragging || !selectedObject) return;
+            const rect = canvas.getBoundingClientRect();
+            selectedObject.x = e.clientX - rect.left - dragOffset.x;
+            selectedObject.y = e.clientY - rect.top - dragOffset.y;
+            selectedObject.vx = 0;
+            selectedObject.vy = 0;
+        }
+
+        function handlePointerUp() {
+            if (selectedObject) {
+                selectedObject.isDragged = false;
+            }
+            isDragging = false;
+        }
+
+        // --- LAVA LAMP EFFERVESCENT TABLET EFFECT ---
+        function triggerLavaEffect() {
+            isLavaActive = true;
+            lavaTimer = 350; // duration frames
+            updateTeacherExplanation("¡Pastilla efervescente añadida! Genera burbujas de CO2 que se adhieren y hacen flotar gotas del fondo, creando un efecto de Lámpara de Lava.");
+        }
+
+        // --- PHYSICAL ENGINE & RENDER LOOP ---
+        function simLoop() {
+            updatePhysics();
+            renderCanvas();
+            updateForceOverlay();
+            requestAnimationFrame(simLoop);
+        }
+
+        function updatePhysics() {
+            const activeFluids = liquids.filter(l => l.visible);
+            
+            // Tube bounds inside canvas
+            const tubeX = 40;
+            const tubeW = canvas.width - 80;
+            const tubeTop = 50;
+            const tubeBottom = canvas.height - 30;
+            const tubeH = tubeBottom - tubeTop;
+
+            const layerHeight = activeFluids.length > 0 ? tubeH / activeFluids.length : tubeH;
+
+            // Update Objects Physics
+            activeObjects.forEach(obj => {
+                if (obj.isDragged) return;
+
+                // Determine fluid layer object is currently sitting in
+                let currentFluidDensity = 0.001; // Air density default above tube
+                
+                if (obj.y >= tubeTop && obj.y <= tubeBottom) {
+                    const relativeY = obj.y - tubeTop;
+                    const layerIdx = Math.min(Math.floor(relativeY / layerHeight), activeFluids.length - 1);
+                    if (layerIdx >= 0 && activeFluids[layerIdx]) {
+                        currentFluidDensity = activeFluids[layerIdx].density;
+                    }
+                }
+
+                // Buoyancy vs Gravity Forces
+                // Net Acceleration = (Density_fluid - Density_obj) * Gravity_factor
+                const densityDiff = currentFluidDensity - obj.density;
+                const buoyancyForce = densityDiff * 0.15; // Scaled physics force
+
+                obj.vy += (GRAVITY * 0.02) - buoyancyForce;
+                
+                // Fluid resistance / Damping
+                const damping = currentFluidDensity > 0.05 ? 0.92 : 0.99;
+                obj.vy *= damping;
+                obj.vx *= damping;
+
+                // Move object
+                obj.y += obj.vy;
+                obj.x += obj.vx;
+
+                // Tube Wall collisions
+                if (obj.x - obj.radius < tubeX) {
+                    obj.x = tubeX + obj.radius;
+                    obj.vx *= -0.5;
+                }
+                if (obj.x + obj.radius > tubeX + tubeW) {
+                    obj.x = tubeX + tubeW - obj.radius;
+                    obj.vx *= -0.5;
+                }
+
+                // Bottom & Top limits
+                if (obj.y + obj.radius > tubeBottom) {
+                    obj.y = tubeBottom - obj.radius;
+                    obj.vy *= -0.3;
+                }
+                if (obj.y - obj.radius < tubeTop - 20) {
+                    obj.y = tubeTop - 20 + obj.radius;
+                    obj.vy = Math.max(0, obj.vy);
+                }
+            });
+
+            // Lava lamp bubbles physics update
+            if (isLavaActive || lavaBubbles.length > 0) {
+                if (isLavaActive && Math.random() < 0.3) {
+                    lavaBubbles.push({
+                        x: tubeX + 20 + Math.random() * (tubeW - 40),
+                        y: tubeBottom - 10,
+                        r: 3 + Math.random() * 8,
+                        vy: - (1 + Math.random() * 2),
+                        color: 'rgba(255, 255, 255, 0.7)'
+                    });
+                }
+
+                lavaBubbles.forEach((b, i) => {
+                    b.y += b.vy;
+                    b.x += Math.sin(b.y * 0.05) * 0.5;
+                    if (b.y < tubeTop) {
+                        lavaBubbles.splice(i, 1);
+                    }
+                });
+
+                if (isLavaActive) {
+                    lavaTimer--;
+                    if (lavaTimer <= 0) isLavaActive = false;
+                }
+            }
+        }
+
+        function renderCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const activeFluids = liquids.filter(l => l.visible);
+            const tubeX = 40;
+            const tubeW = canvas.width - 80;
+            const tubeTop = 50;
+            const tubeBottom = canvas.height - 30;
+            const tubeH = tubeBottom - tubeTop;
+
+            // 1. Draw Glass Column Outer Shadow / Backing
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(tubeX, tubeTop, tubeW, tubeH);
+
+            // 2. Draw Liquid Layers
+            if (activeFluids.length > 0) {
+                const layerHeight = tubeH / activeFluids.length;
+
+                activeFluids.forEach((fluid, idx) => {
+                    const ly = tubeTop + (idx * layerHeight);
+
+                    // Liquid Fill
+                    ctx.fillStyle = fluid.color;
+                    ctx.fillRect(tubeX, ly, tubeW, layerHeight);
+
+                    // Liquid Interface Line / Surface wave effect
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(tubeX, ly);
+                    ctx.lineTo(tubeX + tubeW, ly);
+                    ctx.stroke();
+
+                    // Liquid Label inside tube
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.font = '10px Inter';
+                    ctx.fillText(`${fluid.name} (${fluid.density.toFixed(2)})`, tubeX + 8, ly + 14);
+                });
+            }
+
+            // 3. Draw Lava Bubbles
+            lavaBubbles.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = b.color;
+                ctx.fill();
+            });
+
+            // 4. Draw Glass Tube Container Outline & Graduation Markers
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            // Left border
+            ctx.moveTo(tubeX, tubeTop - 10);
+            ctx.lineTo(tubeX, tubeBottom);
+            // Bottom rounded corners
+            ctx.arcTo(tubeX, tubeBottom + 10, tubeX + 10, tubeBottom + 10, 10);
+            ctx.lineTo(tubeX + tubeW - 10, tubeBottom + 10);
+            ctx.arcTo(tubeX + tubeW, tubeBottom + 10, tubeX + tubeW, tubeBottom, 10);
+            // Right border
+            ctx.lineTo(tubeX + tubeW, tubeTop - 10);
+            ctx.stroke();
+
+            // Graduation lines on side of glass tube
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            for (let y = tubeTop; y <= tubeBottom; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(tubeX - 6, y);
+                ctx.lineTo(tubeX, y);
+                ctx.stroke();
+            }
+
+            // 5. Draw Active Objects
+            activeObjects.forEach(obj => {
+                ctx.save();
+
+                // Object circle background & glow if selected
+                ctx.beginPath();
+                ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+                ctx.fillStyle = obj.color;
+                ctx.fill();
+                
+                if (obj === selectedObject) {
+                    ctx.strokeStyle = '#06b6d4';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+
+                // Render Icon or Symbol centered
+                ctx.font = `${obj.radius * 1.1}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(obj.icon || '⚪', obj.x, obj.y);
+
+                ctx.restore();
+            });
+
+            // 6. Draw Force Vectors if an object is selected
+            if (selectedObject) {
+                drawForceVectors(selectedObject);
+            }
+        }
+
+        // Draw Force Diagram Vectors (Empuje vs Peso)
+        function drawForceVectors(obj) {
+            const activeFluids = liquids.filter(l => l.visible);
+            const tubeTop = 50;
+            const tubeBottom = canvas.height - 30;
+            const tubeH = tubeBottom - tubeTop;
+            const layerHeight = activeFluids.length > 0 ? tubeH / activeFluids.length : tubeH;
+
+            let currentFluidDensity = 0.001;
+            if (obj.y >= tubeTop && obj.y <= tubeBottom && activeFluids.length > 0) {
+                const relativeY = obj.y - tubeTop;
+                const layerIdx = Math.min(Math.floor(relativeY / layerHeight), activeFluids.length - 1);
+                if (layerIdx >= 0 && activeFluids[layerIdx]) {
+                    currentFluidDensity = activeFluids[layerIdx].density;
+                }
+            }
+
+            // Scale vectors visually
+            const weightLength = Math.min(60, obj.density * 12 + 10);
+            const buoyancyLength = Math.min(60, currentFluidDensity * 12 + 10);
+
+            // Vector 1: Weight (Down - Red)
+            drawArrow(obj.x, obj.y, obj.x, obj.y + weightLength, '#f43f5e', 'Fg');
+
+            // Vector 2: Buoyancy (Up - Green)
+            drawArrow(obj.x, obj.y, obj.x, obj.y - buoyancyLength, '#10b981', 'Fe');
+        }
+
+        function drawArrow(fromX, fromY, toX, toY, color, label) {
+            const headlen = 7;
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+
+            // Label
+            ctx.font = 'bold 10px Fira Code';
+            ctx.fillText(label, toX + 10, toY + (toY > fromY ? 5 : -5));
+        }
+
+        // --- DYNAMIC PEDAGOGICAL TEXT & OVERLAY UPDATE ---
+        function updateForceOverlay() {
+            if (!selectedObject) {
+                document.getElementById('selectedObjName').innerText = 'Ninguno (selecciona uno)';
+                document.getElementById('valEmpuje').innerText = '0.0';
+                document.getElementById('valPeso').innerText = '0.0';
+                return;
+            }
+
+            document.getElementById('selectedObjName').innerText = `${selectedObject.name} (${selectedObject.density.toFixed(2)} g/cm³)`;
+
+            // Calculate actual theoretical force representation
+            const activeFluids = liquids.filter(l => l.visible);
+            const tubeTop = 50;
+            const tubeBottom = canvas.height - 30;
+            const tubeH = tubeBottom - tubeTop;
+            const layerHeight = activeFluids.length > 0 ? tubeH / activeFluids.length : tubeH;
+
+            let currentFluidDensity = 0.001;
+            if (selectedObject.y >= tubeTop && selectedObject.y <= tubeBottom && activeFluids.length > 0) {
+                const relativeY = selectedObject.y - tubeTop;
+                const layerIdx = Math.min(Math.floor(relativeY / layerHeight), activeFluids.length - 1);
+                if (layerIdx >= 0 && activeFluids[layerIdx]) {
+                    currentFluidDensity = activeFluids[layerIdx].density;
+                }
+            }
+
+            const weightVal = (selectedObject.density * 0.098).toFixed(2);
+            const buoyancyVal = (currentFluidDensity * 0.098).toFixed(2);
+
+            document.getElementById('valPeso').innerText = weightVal;
+            document.getElementById('valEmpuje').innerText = buoyancyVal;
+        }
+
+        function updateTeacherExplanation(customMsg = null) {
+            const el = document.getElementById('teacherText');
+
+            if (customMsg) {
+                el.innerText = customMsg;
+                return;
+            }
+
+            if (!selectedObject) {
+                el.innerText = "Selecciona o arrastra cualquier objeto dentro de la lámpara graduada para analizar su comportamiento de flotabilidad en las distintas capas.";
+                return;
+            }
+
+            const dObj = selectedObject.density;
+            const activeFluids = liquids.filter(l => l.visible);
+
+            if (activeFluids.length === 0) {
+                el.innerText = "No hay líquidos presentes en la columna. Sin un fluido que genere empuje, la gravedad acelerará al objeto hasta el fondo.";
+                return;
+            }
+
+            // Find where the object will balance
+            let equilibriumLayer = null;
+            for (let i = 0; i < activeFluids.length; i++) {
+                if (dObj < activeFluids[i].density) {
+                    equilibriumLayer = activeFluids[i];
+                    break;
+                }
+            }
+
+            if (!equilibriumLayer) {
+                el.innerText = `El objeto "${selectedObject.name}" tiene una densidad de ${dObj.toFixed(2)} g/cm³, superior a la de todos los líquidos en la lámpara. Por lo tanto, el Peso (Fg) supera al Empuje (Fe) y se hunde por completo.`;
+            } else {
+                el.innerText = `El objeto "${selectedObject.name}" (${dObj.toFixed(2)} g/cm³) flotará o se equilibrará justo sobre la capa de ${equilibriumLayer.name} (${equilibriumLayer.density.toFixed(2)} g/cm³), ya que la densidad del objeto es menor que la del fluido inferior.`;
+            }
+        }
+    </script>
+</body>
+</html>
